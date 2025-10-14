@@ -27,11 +27,11 @@ import logging
 import os
 
 # PyQGIS
-from qgis.core import QgsPointXY, QgsTextAnnotation
-from qgis.gui import QgsMapCanvasAnnotationItem
+from qgis.core import QgsPointXY, QgsTextAnnotation, QgsProject
 from qgis.PyQt import uic
 from qgis.PyQt.QtGui import QTextDocument
-from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog, QApplication
+from qgis.PyQt.QtCore import QSizeF
 
 # create the dialog for zoom to point
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -42,6 +42,17 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
 # ##################################
 
 logger = logging.getLogger(__name__)
+
+
+# ############################################################################
+# ########## Helper Functions ######
+# ##################################
+
+def px_size_to_mm(qsizef_px):
+    """Convert pixel size to millimeters for Qt6 compatibility."""
+    dpi = QApplication.primaryScreen().logicalDotsPerInch() or 96.0
+    # 25.4 mm per inch
+    return QSizeF(qsizef_px.width() * 25.4 / dpi, qsizef_px.height() * 25.4 / dpi)
 
 
 # ############################################################################
@@ -81,15 +92,37 @@ class sketchNoteDialog(QDialog, FORM_CLASS):
 
     def mkAnnotation(self, doc):
         if self.point:
-            TD = QTextDocument(doc)
-            item = QgsTextAnnotation()
-            item.setMapPosition(self.point)
-            item.setFrameSize(TD.size())
-            item.setDocument(TD)
-            i = QgsMapCanvasAnnotationItem(item, self.iface.mapCanvas())
-            return i
+            # Create QTextDocument with the text
+            text_doc = QTextDocument(doc)
+            
+            # Create QgsTextAnnotation
+            annotation = QgsTextAnnotation()
+            annotation.setMapPosition(self.point)
+            
+            # Set the document first
+            annotation.setDocument(text_doc)
+            
+            # For Qt6 compatibility, ensure proper sizing
+            try:
+                # Convert pixel size to mm for Qt6 compatibility
+                size_mm = px_size_to_mm(text_doc.size())
+                annotation.setFrameSizeMm(size_mm)
+            except:
+                # Fallback: use a reasonable default size in mm
+                annotation.setFrameSizeMm(QSizeF(100, 50))
+            
+            # Ensure the annotation is visible by setting additional properties
+            annotation.setVisible(True)
+            
+            # Make sure it has a visible frame and fill
+            annotation.setHasFixedMapPosition(True)
+            
+            # Add to project annotation manager
+            QgsProject.instance().annotationManager().addAnnotation(annotation)
+            
+            return annotation  # Return QgsTextAnnotation directly
         else:
-            return
+            return None
 
     def midPoint(self, s):
         x = (s.vertexAt(0).x() + s.vertexAt(1).x())/2
@@ -102,9 +135,9 @@ class sketchNoteDialog(QDialog, FORM_CLASS):
 
         dialog.setPoint(segment)
         if not txt:
-            result = dialog.exec_()
+            result = dialog.exec()
             dialog.show()
-            if QDialog.Accepted:
+            if QDialog.DialogCode.Accepted:
                 return dialog.getAnnotation()
             else:
                 return None
