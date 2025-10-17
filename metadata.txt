@@ -9,7 +9,8 @@
 [general]
 name=Red Layer
 qgisMinimumVersion=2.99
-qgisMaximumVersion=3.99
+qgisMaximumVersion=4.99
+supportsQt6=True
 description=quick georeferenced sketches and annotations
 version=2.2
 author=Enrico Ferreguti
