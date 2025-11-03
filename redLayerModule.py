@@ -30,6 +30,7 @@ from os import path
 
 # PyQGIS
 from qgis.core import (
+    Qgis,
     QgsFeature,
     QgsField,
     QgsGeometry,
@@ -43,7 +44,7 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsCoordinateReferenceSystem
 )
-from qgis.gui import QgsColorDialog, QgsMapTool, QgsRubberBand
+from qgis.gui import QgsColorDialog, QgsMapTool, QgsMessageBar, QgsRubberBand
 from qgis.PyQt.QtCore import (
     QCoreApplication,
     QFile,
@@ -110,7 +111,7 @@ class redLayer(QgsMapTool):
     def log(
         message: str,
         application: str = "Red Layer",
-        log_level: int = 0,
+        log_level: Qgis.MessageLevel = Qgis.MessageLevel.Info,
         push: bool = False,
     ):
         """Send messages to QGIS messages windows and to the user as a message bar. \
@@ -122,7 +123,7 @@ class redLayer(QgsMapTool):
         :type application: str, optional
         :param log_level: message level. Possible values: 0 (info), 1 (warning), \
             2 (critical), 3 (success), 4 (none - grey). Defaults to 0 (info)
-        :type log_level: int, optional
+        :type log_level: Qgis.MessageLevel, optional
         :param push: also display the message in the QGIS message bar in addition to the log, defaults to False
         :type push: bool, optional
 
@@ -130,11 +131,11 @@ class redLayer(QgsMapTool):
 
         . code-block:: python
 
-                self.log(message="Plugin loaded - INFO", log_level=0, push=1)
-                self.log(message="Plugin loaded - WARNING", log_level=1, push=1)
-                self.log(message="Plugin loaded - ERROR", log_level=2, push=1)
-                self.log(message="Plugin loaded - SUCCESS", log_level=3, push=1)
-                self.log(message="Plugin loaded - TEST", log_level=4, push=1)
+                self.log(message="Plugin loaded - INFO", log_level=Qgis.MessageLevel.Info, push=1)
+                self.log(message="Plugin loaded - WARNING", log_level=Qgis.MessageLevel.Warning, push=1)
+                self.log(message="Plugin loaded - ERROR", log_level=Qgis.MessageLevel.Critical, push=1)
+                self.log(message="Plugin loaded - SUCCESS", log_level=Qgis.MessageLevel.Success, push=1)
+                self.log(message="Plugin loaded - TEST", push=1)
         """
         # send it to QGIS messages panel
         QgsMessageLog.logMessage(
@@ -143,9 +144,17 @@ class redLayer(QgsMapTool):
 
         # optionally, display message on QGIS Message bar (above the map canvas)
         if push:
-            iface.messageBar().pushMessage(
-                title=application, text=message, level=log_level, duration=(log_level+1)*3
-            )
+            message_bar: QgsMessageBar = iface.messageBar()
+            if log_level is Qgis.MessageLevel.Info:
+                message_bar.pushInfo(title=application, message=message)
+            elif log_level is Qgis.MessageLevel.Warning:
+                message_bar.pushWarning(title=application, message=message)
+            elif log_level is Qgis.MessageLevel.Critical:
+                message_bar.pushCritical(title=application, message=message)
+            elif log_level is Qgis.MessageLevel.Success:
+                message_bar.pushSuccess(title=application, message=message)
+            else:
+                message_bar.pushMessage(title=application, text=message, level=Qgis.MessageLevel.NoLevel)
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -430,7 +439,7 @@ class redLayer(QgsMapTool):
                     self.iface.mapCanvas().scene().removeItem(sketch[3])
                     del(sketch[3])
                 except Exception as err:
-                    self.log(message=self.tr("Remove sketches failed."), log_level=1)
+                    self.log(message=self.tr("Remove sketches failed."), log_level=Qgis.MessageLevel.Warning)
                     logger.error(err)
         self.removeAllAnnotations()
         self.geoSketches = []
@@ -539,7 +548,7 @@ class redLayer(QgsMapTool):
                             try:
                                 self.iface.mapCanvas().scene().removeItem(sketch[3])
                             except Exception as err:
-                                self.log(message=self.tr("Erase sketch failed."), log_level=1)
+                                self.log(message=self.tr("Erase sketch failed."), log_level=Qgis.MessageLevel.Warning)
                                 logger.error(err)
 
     def canvasReleaseEvent(self, event):
@@ -582,7 +591,7 @@ class redLayer(QgsMapTool):
         try:
             QgsProject.instance().legendLayersAdded.disconnect(self.notSavedProjectAction)
         except Exception as err:
-            self.log(message=self.tr("Remove unsaved action failed."), log_level=1)
+            self.log(message=self.tr("Remove unsaved action failed."), log_level=Qgis.MessageLevel.Warning)
             logger.error(err)
 
     def newProjectCreatedAction(self):
@@ -590,7 +599,7 @@ class redLayer(QgsMapTool):
         try:
             QgsProject.instance().legendLayersAdded.connect(self.notSavedProjectAction)
         except Exception as err:
-            self.log(message=self.tr("Remove current sketches failed."), log_level=1)
+            self.log(message=self.tr("Remove current sketches failed."), log_level=Qgis.MessageLevel.Warning)
             logger.error(err)
         self.removeSketchesAction()
         self.sketchEnabled(None)
@@ -600,7 +609,7 @@ class redLayer(QgsMapTool):
         try:
             QgsProject.instance().layerLoaded.disconnect(self.notSavedProjectAction)
         except Exception as err:
-            self.log(message=self.tr("Remove current sketches failed."), log_level=1)
+            self.log(message=self.tr("Remove current sketches failed."), log_level=Qgis.MessageLevel.Warning)
             logger.error(err)
 
         try:
@@ -614,7 +623,7 @@ class redLayer(QgsMapTool):
             self.loadSketches()
             self.sketchEnabled(True)
         except Exception as err:
-            self.log(message=self.tr("Error connecting to project signals."), log_level=1)
+            self.log(message=self.tr("Error connecting to project signals."), log_level=Qgis.MessageLevel.Warning)
             logger.error("Error connecting to project signals: {}".format(err))
 
     def beforeSaveProjectAction(self, domDoc):
@@ -666,10 +675,10 @@ class redLayer(QgsMapTool):
                         out_sketch_path = Path(str(out_sketch_path) + ".sketch")
                     self.log(
                         message=self.tr("Saving sketches to {}".format(out_sketch_path.resolve())),
-                        log_level=2
+                        log_level=Qgis.MessageLevel.Critical,
                     )
                 else:
-                    self.log(message=self.tr("No file selected"), log_level=0)
+                    self.log(message=self.tr("No file selected"), log_level=Qgis.MessageLevel.Info)
                     return
             else:
                 out_sketch_path = self.sketchFileInfo.absoluteFilePath()
@@ -682,7 +691,7 @@ class redLayer(QgsMapTool):
                         try:
                             note = sketch[3].annotation().document().toPlainText().replace("\n", "%%N%%")
                         except Exception as err:
-                            self.log(message=self.tr("Error connecting to project signals."), log_level=1)
+                            self.log(message=self.tr("Error connecting to project signals."), log_level=Qgis.MessageLevel.Warning)
                             logger.error(err)
                             note = ""
                         f.write(sketch[0]+'|'+sketch[1]+'|'+sketch[2].asGeometry().asWkt() + "|" + note + "|"+str(sketch[5])+'\n')
@@ -700,7 +709,7 @@ class redLayer(QgsMapTool):
                 self.iface.mapCanvas().scene().removeItem(item)
                 del item
             except Exception as err:
-                self.log(message=self.tr("Remove all annotations failed."), log_level=1)
+                self.log(message=self.tr("Remove all annotations failed."), log_level=Qgis.MessageLevel.Warning)
                 logger.error(err)
 
     def recoverAllAnnotations(self):
@@ -765,7 +774,7 @@ class redLayer(QgsMapTool):
                     try:
                         polyGestures[gestureId].append(sketch[:-1])
                     except Exception as err:
-                        self.log(message=self.tr("Adding sketch to memory layer failed."), log_level=1)
+                        self.log(message=self.tr("Adding sketch to memory layer failed."), log_level=Qgis.MessageLevel.Warning)
                         logger.error(err)
                         polyGestures[gestureId] = [sketch[:-1]]
                     lastPoint = sketch[2].asGeometry().vertexAt(1)
