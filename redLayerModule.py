@@ -466,7 +466,7 @@ class redLayer(QgsMapTool):
                 annotation = sketchNoteDialog.newPoint(self.iface, self.geoSketches[midIdx][2].asGeometry())
                 if annotation:
                     self.geoSketches[-1][3] = annotation
-                    self.geoSketches[-1][4] = annotation.document().toPlainText()
+                    self.geoSketches[-1][4] = annotation.annotation().document().toPlainText()
                 self.annotatatedSketch = True
             self.gestures += 1
             self.points = 0
