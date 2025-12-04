@@ -305,6 +305,7 @@ class redLayer(QgsMapTool):
         canvas_toolbutton = QToolButton(self.iface.mainWindow())
         canvas_toolbutton.setDefaultAction(self.canvasButton)
         canvas_toolbutton.setMenu(self.canvasMenu())
+        canvas_toolbutton.setPopupMode(QToolButton.InstantPopup)
         self.toolbar.addWidget(canvas_toolbutton)
         self.canvasToolButton = canvas_toolbutton
         self.noteButton.setCheckable(True)
